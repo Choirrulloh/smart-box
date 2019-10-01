@@ -1,1 +1,339 @@
+#!/system/bin/sh
 
+#------ check version utk update
+# 860SetupV2.ver
+# 860SetupV2.sh
+VERSION="20191002"
+AWAL="/system/9191/first/"
+APPS="/system/9191/app/"
+DIR_APP="/data/data/com.jlabs.stb/"
+LOG_FILES="/data/data/com.jlabs.stb/stbSetup"
+DIR_BAK="/sdcard/bak/"
+
+# step
+# prepare data
+# install first apk
+# patching app first
+PKG_FIRST="
+SquareHome=com.ss.squarehome2/None
+AndroidAssistant=com.androidassistant.paid/com.advancedprocessmanager.LoadingActivity
+PerfectPlayer=com.niklabs.pp/com.niklabs.perfectplayer.MainActivity
+ZalTV=com.player.zaltv/.presentation.view.activity.StartupActivity
+V5live=com.eletech.fastv/com.cloudtv.anyview.LoadingActivity
+RedboxTV=com.redbox.tv/.MainActivity
+";
+
+PKG_SECOND="
+cyberflix=com.cybermedia.cyberflx/com.cybermedia.cyberflix.ui.activity.HomeActivity
+titanium=com.noname.titanium/.ui.activity.HomeActivity
+";
+
+APP_PERMISSIONS="
+SquareHome=com.ss.squarehome2/STORAGE
+SquareHome=com.ss.squarehome2/CALENDAR
+YouTubeKids=com.liskovsoft.videomanager.kids/STORAGE
+SmartYouTube=com.liskovsoft.videomanager/STORAGE
+MXPlayer=com.mxtech.videoplayer.ad/STORAGE
+PerfectPlayer=com.niklabs.pp/STORAGE
+mobdro=com.mobdro.android/STORAGE
+cyberflix=com.cybermedia.cyberflx/STORAGE
+titanium=com.noname.titanium/STORAGE
+NewCloudTV=com.cloudtv/STORAGE
+popcorn=dp.ws.popcorntime/STORAGE
+liveNetTV=com.lnt.androidnettv/LOCATION
+";
+#apkpure storage dan phone
+#squarehom calendar dan storage
+#useetvgo masih crash salah activity
+
+PKG_TEST="
+SmartYouTube=com.liskovsoft.videomanager/com.liskovsoft.smartyoutubetv.flavors.xwalk.SmartYouTubeTV1080AltActivity
+nobi21=com.nobi21/.MainActivity
+PerfectPlayer=com.niklabs.pp/com.niklabs.perfectplayer.MainActivity
+netflix=com.netflix.mediaclient/.ui.launch.LaunchActivity
+popcorn=dp.ws.popcorntime/se.popcorn_time.mobile.ui.MainActivity
+viki=com.viki.android/.MainActivity
+xx1lite=com.xx1.lite/.MainActivity 
+mobdro=com.mobdro.android/com.mobdro.tv.TVActivity
+cyberflix=com.cybermedia.cyberflx/com.cybermedia.cyberflix.ui.activity.HomeActivity
+titanium=com.noname.titanium/.ui.activity.HomeActivity
+Khaanflix=com.pulpstone.khaanflix/.MainActivity
+iflix= iflix.play/my.com.iflix.home.HomeActivity
+hooq=tv.hooq.android/tv.hooq.androidbeta.views.activity.MainActivity
+ZalTV=com.player.zaltv/.presentation.view.activity.StartupActivity
+V5live=com.eletech.fastv/com.cloudtv.anyview.LoadingActivity
+RedboxTV=com.redbox.tv/.MainActivity
+liveNetTV=com.lnt.androidnettv/.MainActivity 
+NewCloudTV=com.cloudtv/com.cloudtv.ui.home.MainActivity
+MNCNow=com.zte.iptvclient.android.idmnc/.mvp.main.MainActivity
+useetvgo=com.nbs.useetv/.ui.MainActivity 
+vidio=com.vidio.android.tv/.home.MainActivity
+onnetv=com.onecode.tvindonesiatanpabuffer/.MainActivity
+radio=com.worldradios.indonesie/.MainActivity
+";
+
+# ------------------------- FUNCTION ----------------------------
+
+#add 02 okt 2019 Check enviroment
+
+doCheckFile(){
+    echo "Checking resource file"
+    #check /system/9191/app
+	#check /system/9191/first
+	#check /system/bak/setdata
+	#check /sysstem/bak/bak.zip
+}
+
+
+doOpenCloseApp(){
+  if [ -z $1]; then 
+      echo "No App"
+  else
+	  am start -n $1"/"$2
+      sleep 4
+      am force-stop $1
+  fi
+ }
+ 
+ doCopyAppData(){
+   # pass parameter ar1 package arg2 dirdata
+   # get user owner /data/data/package
+     uid=${ stat -c %U /data/data/$1 }  
+   
+   # copy app data ke privat data
+     cp -r $DIR_BAK$1 /data/data/
+	 
+   # ubah 
+     appdata="/data/data/"$1
+     chown $uid -R $appdata
+	
+ }
+ 
+  PatchingApp(){
+    # parameter array package
+	if [ $1 == "1" ]; then
+	   list=$PKG_FIRST
+	   else
+	   list=$PKG_SECOND
+	fi
+    for line in $list; do
+       app=${line%=*}
+	   descApp=${line#*=}
+	   # pkg dan activity
+	   pkg=${descApp%/*}
+	   activity=${descApp#*/}
+	   
+	   # init
+	   echo "   starting $app"
+	   doOpenCloseApp $pkg $activity
+	   sleep 1
+	   # inject private data
+	   echo "patching ...$app"
+       doCopyAppData $pkg $DIR_BAK
+	   #delete backup data app
+	   rm -r $DIR_BAK$pkg
+   done
+
+  }
+# install app
+# patching app
+  
+# grant permission
+  doGrantPermission(){
+    #paramater type permission $1 package $2 permission
+	if [ -n $1 ]; then
+	    case $2 in
+	   "STORAGE") echo " Grant STORAGE $2 to $1"
+	              pm grant $1 android.permission.READ_EXTERNAL_STORAGE
+				  pm grant $1 android.permission.WRITE_EXTERNAL_STORAGE
+	        ;;
+	  "LOCATION") echo " Grant LOCATION $2 to $1"
+	              pm grant $1 android.permission.ACCESS_FINE_LOCATION
+				  pm grant $1 android.permission.ACCESS_COARSE_LOCATION
+		    ;;
+	  "CALENDAR") echo " Grant CALENDAR $2 to $1"
+	              pm grant $1 android.permission.READ_CALENDAR
+				  pm grant $1 android.permission.WRITE_CALENDAR
+		    ;;	
+	    esac
+	fi
+  }
+  
+ # grant app permisison 
+ GrantApp(){
+    for str in $APP_PERMISSIONS; do
+       app=${str%=*}
+	   descApp=${str#*=}
+	   # pkg dan activity
+	   pkg=${descApp%/*}
+	   perm=${descApp#*/}
+	   
+	   # init
+	   #echo "doGrantPermission $pkg $perm"
+	   doGrantPermission $pkg $perm
+   done 
+ }
+
+
+doCopyBaktoInternal(){
+    echo -------- copy data bak di system ke internal -------------
+    cp -r /system/bak/  /sdcard/
+    echo
+    
+	echo ---------setting wifi ----------------------------------
+    cp /sdcard/bak/setdata/wpa_supplicant.conf  /data/misc/wifi/
+    chmod 660 /data/misc/wifi/wpa_supplicant.conf
+    rm /sdcard/bak/setdata/wpa_supplicant.conf
+    rm /system/bak/setdata/wpa_supplicant.conf
+    echo
+	
+    #extract apk data
+    echo ----------- prepare data setting apk -------------------
+    unzip -q /sdcard/bak/bak.zip -d /sdcard/bak
+    rm /sdcard/bak/bak.zip
+	#simpan
+    #rm /system/bak/bak.zip
+
+    # freeze useetv 
+   echo ------disable useetv ----------
+    pm disable com.android.launcher
+    echo
+    echo ---------- logging  ------------
+    rm -rf $DIR_APP
+    mkdir $DIR_APP
+    echo "Prepare data and connection done" >> $LOG_FILES
+    echo
+}
+
+ doInstallAppAwal(){
+   echo ---- install apk awal ----------
+   busybox find $AWAL -name "*\.apk" -exec sh /system/bin/pm install -r {} \;
+   #install app awal dulu
+   echo delete source apk awal
+   rm -rf /system/9191/first/
+ }
+
+ doInstallFullApp(){
+   echo -------------install full aplikasi -----------
+   chmod 777 /system/9191/app/*
+   busybox find $APPS -name "*\.apk" -exec sh /system/bin/pm install -r {} \;
+  
+   echo delete source apk awal
+   rm -rf /system/9191/
+   
+   echo "App installation done" >> $LOG_FILES
+ }
+ 
+doStep1(){
+   doCopyBaktoInternal
+   doInstallAppAwal
+   PatchingApp 1
+}
+
+doStep2(){
+   doInstallFullApp
+   PatchingApp 2
+   GrantApp
+}
+
+doTestingAllApp(){
+    for str in $PKG_TEST; do
+       app=${str%=*}
+	   actApp=${str#*=}
+	   pkg=${actApp%/*}
+	  
+	  # open dan close app
+	   am start -n $actApp
+       sleep 20
+      am force-stop $pkg
+   done 
+ }
+ 
+showMenu(){
+  clear
+  echo "----------- Setup STB ZTE B860H V2 No Play Service------------"
+  echo
+  echo "     Action :"
+  echo 
+  echo "     [10] Step 1"
+  echo "     [20] Step 2"
+  echo "     [30] Finishing dan Testing"
+  echo "--------------------------------------------"
+  echo "     [99] exit"
+  echo "     [90] reboot"
+  echo " -------------------------------------------"
+  echo "     [51] Initialize"
+  echo "     [52] Install App Awal"
+  echo "     [53] Install Full App"
+  echo "     [54] Patching app"
+  echo "     [55] Grant Permission App"
+  echo 
+  echo
+  #read -p " Pilihan anda : " menu
+  
+  #return $menu
+ }
+
+#------------- MAIN    -------------------------
+# -------- Setup B860H V2 --------------
+#
+mount -o rw,remount /system
+#-----------------------------------------------
+
+
+  inputMenu="00";
+  while [ [$inputMenu != "99"] ]
+  do
+     showMenu
+	 echo "       Pilihan anda :"
+	 read  inputMenu
+	 
+     # pilihan action
+	 case $inputMenu in
+	   "10") clear
+	         echo "Step 1 Setup STB B860H"
+			 doStep1
+			 sleep 1
+			 echo " rebooting ....."
+			 reboot
+	        ;;
+	   "20") clear
+	         echo "Step 2 Setup STB B860H"
+			 doStep2
+			 sleep 1
+			 echo " rebooting ....."
+			 reboot
+			 ;;
+	   "30") clear
+	         echo "Finishing dan Testing"
+			 doTestingAllApp
+	         ;;
+	   "51") clear
+	         echo "----- Initialize -------------- "
+			 doCopyBaktoInternal
+	         ;;	  
+	   "52") clear
+	         echo "----- Install App Awal -------------- "
+		     doInstallAppAwal
+			 ;;
+	   "53") clear
+	          echo " --- Install Full App ------"
+			  doInstallFullApp
+			  ;;
+	   "54") clear
+	         echo "----- Patchin App-------------- "
+		     PatchingApp 1
+			 PatchingApp 2
+	         ;;	  
+	   "55") clear
+	          echo " --- Grant Permission------"
+			  GrantApp
+	         ;;	 	 
+	    "99") echo " Exiting ......"
+	         exit 1
+	         ;;
+	    "90") echo " Reboot ......"
+	          reboot
+	         ;;
+	   esac 
+done
